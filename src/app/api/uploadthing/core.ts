@@ -4,10 +4,9 @@ import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { pinecone } from "@/lib/pinecone";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { PineconeStore } from "@langchain/pinecone";
-
-
 import { currentUser } from "@clerk/nextjs/server";
 
+import { extractText, getDocumentProxy } from "unpdf";
 
 
 const f = createUploadthing();
@@ -50,13 +49,25 @@ export const ourFileRouter = {
 
 
       try {
+        // const res = await fetch(file.ufsUrl);
+        // const blob = await res.blob()
+
+        // const loader = new PDFLoader(blob);
+        // const pageLevelDocs = await loader.load();
+        // const pagesAmt = pageLevelDocs.length;
+        // Replace the loader section with:
         const res = await fetch(file.ufsUrl);
-        const blob = await res.blob()
+        const buffer = await res.arrayBuffer();
 
-        const loader = new PDFLoader(blob);
-        const pageLevelDocs = await loader.load();
-        const pagesAmt = pageLevelDocs.length;
+        // Parse PDF with unpdf 
+        const pdf = await getDocumentProxy(new Uint8Array(buffer));
+        const { text } = await extractText(pdf, { mergePages: false });
 
+        // Convert to LangChain document format
+        const pageLevelDocs = (Array.isArray(text) ? text : [text]).map((pageText, i) => ({
+          pageContent: pageText,
+          metadata: { source: file.ufsUrl, page: i + 1 }
+        }));
         // Vectorize and index the document 
 
 
@@ -95,7 +106,7 @@ export const ourFileRouter = {
 
       } catch (err) {
 
-        console.error("Upload processing failed:", err); 
+        console.error("Upload processing failed:", err);
         console.error("File URL:", file.ufsUrl);
 
         // stop polling
