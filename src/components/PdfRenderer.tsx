@@ -30,7 +30,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
 
-import PdfFullscreen from './PdfFullScreen'
+import PdfFullscreen from "./PdfFullScreen"
 
 // pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 //   "pdfjs-dist/build/pdf.worker.min.mjs",

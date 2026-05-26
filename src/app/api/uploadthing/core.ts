@@ -1,5 +1,5 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
-import db from "../../lib/prisma"
+import db from "../../../lib/prisma"
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { pinecone } from "@/lib/pinecone";
 import { OpenAIEmbeddings } from "@langchain/openai";
@@ -41,6 +41,7 @@ export const ourFileRouter = {
       return { userId: user.id }
     })
     .onUploadComplete(async ({ metadata, file }) => {
+      // console.log("nUploadComplete triggered", file.ufsUrl); 
       const createdFile = await db.file.create({
         data: {
           key: file.key,
@@ -98,9 +99,10 @@ export const ourFileRouter = {
 
       } catch (err) {
 
-      
+        console.error("Upload processing failed:", err); 
+        console.error("File URL:", file.ufsUrl);
 
-        // Secure fallback to ensure the frontend stops polling
+        // stop polling
         try {
           await db.file.update({
             data: {

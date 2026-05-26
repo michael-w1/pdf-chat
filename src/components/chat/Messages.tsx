@@ -96,7 +96,7 @@ const Messages = ({ fileId }: Props) => {
                 ) : (
                 <div className="flex-1 flex flex-col items-center justify-center gap-2">
                     <MessageSquare className="h-8 w-8 text-blue-500" />
-                    <h3 className="font-semibold text-xl">You&apros;re all set!</h3>
+                    <h3 className="font-semibold text-xl">{"You're all set!"}</h3>
                     <p className="text-slate-500 text-sm"> Ask your first question to get started </p>
 
                 </div>

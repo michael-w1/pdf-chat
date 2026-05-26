@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-const PdfRenderer = dynamic(() => import("./PdfRender"), {
+const PdfRenderer = dynamic(() => import("./PdfRenderer"), {
   ssr: false,
 });
 
