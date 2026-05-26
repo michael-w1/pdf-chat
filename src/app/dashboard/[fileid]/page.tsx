@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import db from "../../../lib/prisma";
-import ChatWrapper from "@/components/Chat/ChatWrapper";
+import ChatWrapper from "@/components/chat/ChatWrapper";
 import PdfRendererClient from "@/components/PdfRenderClient";
 import { currentUser } from "@clerk/nextjs/server";
 
