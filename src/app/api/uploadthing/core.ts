@@ -5,14 +5,10 @@ import { pinecone } from "@/lib/pinecone";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { PineconeStore } from "@langchain/pinecone";
 
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+
 import { currentUser } from "@clerk/nextjs/server";
 
-// 🚀 FIX: Explicitly direct Next.js to pull the worker file accurately
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/legacy/build/pdf.worker.mjs',
-  import.meta.url
-).toString();
+
 
 const f = createUploadthing();
 
