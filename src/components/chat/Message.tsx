@@ -1,9 +1,10 @@
 import { cn } from '@/lib/utils'
 import { ExtendedMessage } from '@/types/message'
-import { Icons } from "../Icons"
 import ReactMarkdown from 'react-markdown'
 import { format } from 'date-fns'
 import { forwardRef } from 'react'
+import { Sparkles, User } from 'lucide-react'
+import { usePdfPage } from '../PdfPageContext'
 
 interface MessageProps {
     message: ExtendedMessage
@@ -12,91 +13,112 @@ interface MessageProps {
 
 const Message = forwardRef<HTMLDivElement, MessageProps>(
     ({ message, isNextMessageSamePerson }, ref) => {
+        const { goToPage } = usePdfPage()
+        const isUser = message.isUserMessage
+        const sourcePages = !isUser ? message.sourcePages ?? [] : []
+        const isLoading = message.id === 'loading-message'
+
         return (
             <div
                 ref={ref}
-                className={cn('flex items-end', {
-                    'justify-end': message.isUserMessage,
-                })}>
+                className={cn('flex items-end gap-2', isUser && 'justify-end')}>
                 <div
                     className={cn(
-                        'relative flex h-6 w-6 aspect-square items-center justify-center',
-                        {
-                            'order-2 bg-blue-600 rounded-sm':
-                                message.isUserMessage,
-                            'order-1 bg-slate-800 rounded-sm':
-                                !message.isUserMessage,
-                            invisible: isNextMessageSamePerson,
-                        }
+                        'flex size-7 shrink-0 items-center justify-center rounded-full border border-border',
+                        isUser
+                            ? 'order-2 bg-primary text-primary-foreground'
+                            : 'order-1 bg-muted text-muted-foreground',
+                        isNextMessageSamePerson && 'invisible'
                     )}>
-                    {message.isUserMessage ? (
-                        <Icons.user className='fill-slate-200 text-slate-200 h-3/4 w-3/4' />
+                    {isUser ? (
+                        <User className='size-3.5' />
                     ) : (
-                        <Icons.logo className='fill-white h-3/4 w-3/4' />
+                        <Sparkles className='size-3.5' />
                     )}
                 </div>
 
                 <div
                     className={cn(
-                        'flex flex-col space-y-2 text-base max-w-md mx-2',
-                        {
-                            'order-1 items-end': message.isUserMessage,
-                            'order-2 items-start': !message.isUserMessage,
-                        }
+                        'flex max-w-[min(32rem,85%)] flex-col gap-1.5',
+                        isUser ? 'order-1 items-end' : 'order-2 items-start'
                     )}>
                     <div
                         className={cn(
-                            'px-4 py-2 rounded-lg inline-block',
-                            {
-                                'bg-blue-600 text-white':
-                                    message.isUserMessage,
-                                'bg-gray-200 text-gray-900':
-                                    !message.isUserMessage,
-                                'rounded-br-none':
-                                    !isNextMessageSamePerson &&
-                                    message.isUserMessage,
-                                'rounded-bl-none':
-                                    !isNextMessageSamePerson &&
-                                    !message.isUserMessage,
-                            }
+                            'rounded-2xl px-3.5 py-2.5 text-sm',
+                            isUser
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted text-foreground',
+                            !isNextMessageSamePerson &&
+                                (isUser ? 'rounded-br-sm' : 'rounded-bl-sm')
                         )}>
                         {typeof message.text === 'string' ? (
-                            <ReactMarkdown
-                                // 1. REMOVE the className prop completely from here
-                                components={{
-                                    // 2. Wrap the markdown output styles natively via the components prop
-                                    p: ({ children }) => (
-                                        <p className={cn('prose break-words', {
-                                            'text-slate-50': message.isUserMessage,
-                                        })}>
-                                            {children}
-                                        </p>
-                                    ),
-                                    // Optional: Add styling for lists or code blocks if your PDF bot generates them
-                                    pre: ({ children }) => <pre className="whitespace-pre-wrap">{children}</pre>,
-                                    code: ({ children }) => <code className="bg-slate-100 p-1 rounded text-sm">{children}</code>
-                                }}>
-                                {message.text}
-                            </ReactMarkdown>
+                            <div
+                                className={cn(
+                                    'space-y-2 leading-relaxed',
+                                    '[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li]:my-0.5',
+                                    '[&_strong]:font-semibold',
+                                    '[&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold',
+                                    '[&_table]:w-full [&_table]:text-xs [&_th]:text-left [&_th]:font-medium [&_td]:py-0.5 [&_th]:py-0.5',
+                                    isUser && '[&_a]:text-primary-foreground'
+                                )}>
+                                <ReactMarkdown
+                                    components={{
+                                        pre: ({ children }) => (
+                                            <pre
+                                                className={cn(
+                                                    'scrollbar-w-2 overflow-x-auto rounded-md p-2.5 text-xs',
+                                                    isUser
+                                                        ? 'bg-primary-foreground/10'
+                                                        : 'bg-background'
+                                                )}>
+                                                {children}
+                                            </pre>
+                                        ),
+                                        code: ({ children }) => (
+                                            <code
+                                                className={cn(
+                                                    'rounded px-1 py-0.5 font-mono text-[0.85em]',
+                                                    isUser
+                                                        ? 'bg-primary-foreground/10'
+                                                        : 'bg-background'
+                                                )}>
+                                                {children}
+                                            </code>
+                                        ),
+                                    }}>
+                                    {message.text}
+                                </ReactMarkdown>
+                            </div>
                         ) : (
                             message.text
                         )}
-                        {message.id !== 'loading-message' ? (
-                            <div
-                                className={cn(
-                                    'text-xs select-none mt-2 w-full text-right',
-                                    {
-                                        'text-slate-500': !message.isUserMessage,
-                                        'text-blue-300': message.isUserMessage,
-                                    }
-                                )}>
-                                {format(
-                                    new Date(message.createdAt),
-                                    'HH:mm'
-                                )}
-                            </div>
-                        ) : null}
                     </div>
+
+                    {sourcePages.length > 0 ? (
+                        <div className='flex flex-wrap items-center gap-1.5'>
+                            <span className='text-xs text-muted-foreground'>
+                                Sources
+                            </span>
+                            {sourcePages.map((page) => (
+                                <button
+                                    key={page}
+                                    type='button'
+                                    onClick={() => goToPage(page)}
+                                    aria-label={`Go to page ${page}`}
+                                    className='rounded-full border border-brand/30 bg-brand-muted px-2 py-0.5 text-xs font-medium text-brand transition-colors hover:bg-brand hover:text-brand-foreground focus-visible:ring-3 focus-visible:ring-brand/40 focus-visible:outline-none'>
+                                    p. {page}
+                                </button>
+                            ))}
+                        </div>
+                    ) : null}
+
+                    {!isLoading ? (
+                        <time
+                            dateTime={new Date(message.createdAt).toISOString()}
+                            className='px-1 text-[11px] text-muted-foreground'>
+                            {format(new Date(message.createdAt), 'HH:mm')}
+                        </time>
+                    ) : null}
                 </div>
             </div>
         )

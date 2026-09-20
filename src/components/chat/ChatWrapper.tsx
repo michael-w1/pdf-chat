@@ -1,108 +1,102 @@
-"use client"
+"use client";
+
 import { trpc } from "@/app/_trpc/client";
-import ChatInput from "./ChatInput"; 
+import ChatInput from "./ChatInput";
 import Messages from "./Messages";
 import { ChevronLeft, Loader2, XCircle } from "lucide-react";
 import Link from "next/link";
 import { ChatContextProvider } from "./ChatContext";
-import { buttonVariants } from "../ui/button";
+import { Button } from "../ui/button";
+import { ReactNode } from "react";
 
 type Props = {
-    fileId: string
+    fileId: string;
+};
 
-}
+/** Shared frame for the pre-chat states, so they cannot drift apart. */
+const ChatState = ({
+    icon,
+    title,
+    body,
+    action,
+}: {
+    icon: ReactNode;
+    title: string;
+    body?: string;
+    action?: ReactNode;
+}) => (
+    <div className="relative flex h-full flex-col justify-between bg-background">
+        <div className="mb-28 flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+            {icon}
+            <h3 className="font-medium">{title}</h3>
+            {body ? (
+                <p className="max-w-xs text-sm text-muted-foreground">{body}</p>
+            ) : null}
+            {action}
+        </div>
+        <ChatInput isDisabled />
+    </div>
+);
 
 const ChatWrapper = ({ fileId }: Props) => {
-    const { data, isLoading } =
-        trpc.getFileUploadStatus.useQuery(
-            { fileId },
-            {
-                refetchInterval: (query) => {
-                    const status = query.state.data?.status;
-                    if (status === 'SUCCESS' || status === 'FAILED') {
-                        return false;
-                    }
-                    return 500;
-                }
-            }
-        )
+    const { data, isLoading } = trpc.getFileUploadStatus.useQuery(
+        { fileId },
+        {
+            refetchInterval: (query) => {
+                const status = query.state.data?.status;
+                return status === "SUCCESS" || status === "FAILED" ? false : 500;
+            },
+        }
+    );
 
-    if (isLoading) return (
-        <div className='relative min-h-full bg-slate-50 flex divide-y divide-slate-200 flex-col justify-between gap-2'>
-            <div className='flex-1 flex justify-center items-center flex-col mb-28'>
-                <div className='flex flex-col items-center gap-2'>
-                    <Loader2 className='h-8 w-8 text-blue-500 animate-spin' />
-                    <h3 className='font-semibold text-xl'>
-                        Loading...
-                    </h3>
-                    <p className='text-slate-500 text-sm'>
-                        We&apos;re preparing your PDF.
-                    </p>
-                </div>
-            </div>
-
-            <ChatInput isDisabled />
-        </div>
-    )
-
-    if (data?.status === 'PROCESSING')
+    if (isLoading) {
         return (
-            <div className='relative min-h-full bg-slate-50 flex divide-y divide-slate-200 flex-col justify-between gap-2'>
-                <div className='flex-1 flex justify-center items-center flex-col mb-28'>
-                    <div className='flex flex-col items-center gap-2'>
-                        <Loader2 className='h-8 w-8 text-blue-500 animate-spin' />
-                        <h3 className='font-semibold text-xl'>
-                            Processing PDF...
-                        </h3>
-                        <p className='text-slate-500 text-sm'>
-                            This won&apos;t take long.
-                        </p>
-                    </div>
-                </div>
+            <ChatState
+                icon={<Loader2 className="size-7 animate-spin text-muted-foreground" />}
+                title="Loading"
+                body="Preparing your document."
+            />
+        );
+    }
 
-                <ChatInput isDisabled />
-            </div>
-        )
-
-    if (data?.status === 'FAILED')
+    if (data?.status === "PROCESSING") {
         return (
-            <div className='relative min-h-full bg-slate-50 flex divide-y divide-slate-200 flex-col justify-between gap-2'>
-                <div className='flex-1 flex justify-center items-center flex-col mb-28'>
-                    <div className='flex flex-col items-center gap-2'>
-                        <XCircle className='h-8 w-8 text-red-500' />
-                        <h3 className='font-semibold text-xl'>
-                            Too many pages in PDF
-                        </h3>
+            <ChatState
+                icon={<Loader2 className="size-7 animate-spin text-brand" />}
+                title="Analysing document"
+                body="Extracting text and building the search index. This usually takes a few seconds."
+            />
+        );
+    }
 
-                        <Link
-                            href='/dashboard'
-                            className={buttonVariants({
-                                variant: 'secondary',
-                                className: 'mt-4',
-                            })}>
-                            <ChevronLeft className='h-3 w-3 mr-1.5' />
-                            Back
+    if (data?.status === "FAILED") {
+        return (
+            <ChatState
+                icon={<XCircle className="size-7 text-destructive" />}
+                title="We couldn't process this PDF"
+                body="Make sure it contains selectable text and is under 4 MB, then try uploading it again."
+                action={
+                    <Button asChild variant="outline" size="sm" className="mt-2">
+                        <Link href="/dashboard">
+                            <ChevronLeft className="size-3.5" />
+                            Back to documents
                         </Link>
-                    </div>
-                </div>
-
-                <ChatInput isDisabled />
-            </div>
-        )
+                    </Button>
+                }
+            />
+        );
+    }
 
     return (
-
         <ChatContextProvider fileId={fileId}>
-            <div className='relative h-full bg-slate-50 flex divide-y divide-slate-200 flex-col justify-between gap-2'>
-                <div className="flex-1 justify-between flex flex-col mb-28 overflow-hidden">
+            <div className="relative flex h-full flex-col justify-between bg-background">
+                <div className="flex flex-1 flex-col overflow-hidden">
                     <Messages fileId={fileId} />
                 </div>
                 <ChatInput />
             </div>
-
         </ChatContextProvider>
-    )
-
-}
+    );
+};
 
 export default ChatWrapper;

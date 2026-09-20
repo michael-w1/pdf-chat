@@ -1,129 +1,161 @@
-"use client"
+"use client";
+
 import { trpc } from "@/app/_trpc/client";
 import UploadButton from "./UploadButton";
-import { Ghost, Loader2, Calendar, Trash, FileText } from "lucide-react";
+import {
+  AlertCircle,
+  FileText,
+  Ghost,
+  Loader2,
+  Trash2,
+} from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
+import { Button } from "./ui/button";
 import Link from "next/link";
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from "date-fns";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
+
+type UploadStatus = "PENDING" | "PROCESSING" | "FAILED" | "SUCCESS";
+
+/** Small badge shown only while a file is not yet ready to query. */
+const StatusBadge = ({ status }: { status: UploadStatus }) => {
+  if (status === "SUCCESS") return null;
+
+  if (status === "FAILED") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+        <AlertCircle className="size-3" />
+        Failed
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+      <Loader2 className="size-3 animate-spin" />
+      Processing
+    </span>
+  );
+};
 
 const Dashboard = () => {
   const utils = trpc.useUtils();
-  const [currentlyDeletingFile, setCurrentlyDeletingFile] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { data: files, isLoading } = trpc.getUserFiles.useQuery();
   const { mutate: deleteFile } = trpc.deleteFile.useMutation({
-    onSuccess: () => { utils.getUserFiles.invalidate() },
-    onMutate({ id }) { setCurrentlyDeletingFile(id) },
-    onSettled() { setCurrentlyDeletingFile(null) },
+    onSuccess: () => utils.getUserFiles.invalidate(),
+    onMutate: ({ id }) => setDeletingId(id),
+    onSettled: () => setDeletingId(null),
   });
 
-  const sorted = files?.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  ) ?? [];
+  const hasFiles = (files?.length ?? 0) > 0;
 
   return (
-    <main className="min-h-screen text-slate-900">
-      <div className="mx-auto max-w-4xl px-6 py-12">
-
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <p className="text-slate-800 text-xs font-medium tracking-widest uppercase mb-1">Workspace</p>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">My Files</h1>
-          </div>
-          <UploadButton />
+    <main className="mx-auto w-full max-w-4xl px-6 py-12 sm:py-16">
+      <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Your documents
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {hasFiles
+              ? `${files!.length} ${files!.length === 1 ? "document" : "documents"}`
+              : "Upload a PDF to start asking questions."}
+          </p>
         </div>
+        <UploadButton />
+      </div>
 
-        {/* Table header */}
-        {sorted.length > 0 && (
-          <div className="grid grid-cols-12 gap-4 px-4 mb-2 text-xs font-medium text-slate-800 uppercase tracking-wider">
-            <span className="col-span-6">Name</span>
-            <span className="col-span-5 hidden sm:block">Uploaded</span>
-            <span className="col-span-1" />
-          </div>
-        )}
+      {hasFiles ? (
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {files!.map((file) => {
+            const isDeleting = deletingId === file.id;
 
-        {/* Divider */}
-        <div className="h-px bg-slate-200 mb-1" />
-
-        {/* File List */}
-        {sorted.length > 0 ? (
-          <ul className="divide-y divide-slate-100">
-            {sorted.map((file) => (
+            return (
               <li
                 key={file.id}
-                className="group grid grid-cols-12 gap-4 items-center px-4 py-3.5 hover:bg-slate-200 transition-colors duration-150 rounded-lg"
+                className={cn(
+                  "group relative flex items-center gap-4 px-4 py-3.5 transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-muted/50",
+                  isDeleting && "opacity-50"
+                )}
               >
-                {/* Name */}
                 <Link
                   href={`/dashboard/${file.id}`}
-                  className="col-span-6 flex items-center gap-3 min-w-0"
+                  className="flex min-w-0 flex-1 items-center gap-3.5 outline-none"
                 >
-                  <div className="flex-shrink-0 h-8 w-8 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center group-hover:border-slate-300 transition-colors">
-                    <FileText className="h-4 w-4 text-slate-800" />
-                  </div>
-                  <span className="text-sm font-medium text-slate-700 truncate group-hover:text-slate-900 transition-colors">
-                    {file.name}
+                  {/* Covers the row so the whole thing is clickable, while the
+                      delete button stays above it in the stacking order. */}
+                  <span className="absolute inset-0 rounded-lg" />
+
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 text-muted-foreground transition-colors group-hover:text-foreground">
+                    <FileText className="size-4" />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium">
+                        {file.name}
+                      </span>
+                      <StatusBadge status={file.uploadStatus as UploadStatus} />
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      <time
+                        dateTime={new Date(file.createdAt).toISOString()}
+                        title={format(new Date(file.createdAt), "PPpp")}
+                      >
+                        Added{" "}
+                        {formatDistanceToNow(new Date(file.createdAt), {
+                          addSuffix: true,
+                        })}
+                      </time>
+                    </span>
                   </span>
                 </Link>
 
-                {/* Date */}
-                <div className="col-span-5 hidden sm:flex items-center gap-2 text-sm text-slate-800">
-                  <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
-                  {format(new Date(file.createdAt), 'MMM d, yyyy')}
-                </div>
-
-                {/* Delete */}
-                <div className="col-span-6 sm:col-span-1 flex justify-end">
-                  <button
-                    onClick={() => deleteFile({ id: file.id })}
-                    className="h-7 w-10 flex items-center justify-center rounded-md text-black hover:text-red-500 hover:bg-red-50 group-hover:opacity-100 transition-all duration-150"
-                  >
-                    {currentlyDeletingFile === file.id
-                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : <Trash className="h-3.5 w-3.5" />
-                    }
-                  </button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Delete ${file.name}`}
+                  disabled={isDeleting}
+                  onClick={() => deleteFile({ id: file.id })}
+                  className="relative z-10 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
+                </Button>
               </li>
-            ))}
-          </ul>
-        ) : isLoading ? (
-          <ul className="divide-y divide-slate-100">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <li key={i} className="grid grid-cols-12 gap-4 items-center px-4 py-3.5">
-                <div className="col-span-6 flex items-center gap-3">
-                  <Skeleton className="h-8 w-8 rounded-md bg-slate-200 flex-shrink-0" />
-                  <Skeleton className="h-4 w-48 bg-slate-200" />
-                </div>
-                <div className="col-span-3 hidden sm:block">
-                  <Skeleton className="h-4 w-24 bg-slate-200" />
-                </div>
-                <div className="col-span-2 hidden sm:block">
-                  <Skeleton className="h-4 w-12 bg-slate-200" />
-                </div>
-                <div className="col-span-1" />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-32 gap-3 text-center">
-            <div className="h-14 w-14 rounded-xl bg-slate-200 border border-slate-200 flex items-center justify-center mb-1 shadow-sm">
-              <Ghost className="h-7 w-7 text-slate-600" />
-            </div>
-            <h3 className="font-semibold text-lg text-slate-900">No files yet</h3>
-            <p className="text-slate-800 text-sm max-w-xs">Upload a PDF to start chatting with your documents.</p>
-          </div>
-        )}
-
-        {/* Footer count */}
-        {sorted.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-slate-200 text-xs text-slate-800">
-            {sorted.length} {sorted.length === 1 ? "file" : "files"}
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </ul>
+      ) : isLoading ? (
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <li key={i} className="flex items-center gap-3.5 px-4 py-3.5">
+              <Skeleton className="size-9 shrink-0 rounded-md" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-52" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-6 py-20 text-center">
+          <span className="flex size-12 items-center justify-center rounded-xl border border-border bg-muted/40">
+            <Ghost className="size-6 text-muted-foreground" />
+          </span>
+          <h3 className="font-medium">No documents yet</h3>
+          <p className="max-w-xs text-sm text-muted-foreground">
+            Upload a PDF and it will be ready to answer questions in a few
+            moments.
+          </p>
+        </div>
+      )}
     </main>
   );
 };

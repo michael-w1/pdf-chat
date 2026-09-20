@@ -1,24 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  // turbopack: {
+  // Emits a self-contained server bundle in .next/standalone, which is what
+  // the Dockerfile copies. Keeps the runtime image small.
+  output: "standalone",
 
-  // },
-  // webpack: (
-  //   config,
-  //   { buildId, dev, isServer, defaultLoaders, webpack }
-  // ) => {
-  //   config.resolve.alias.canvas = false
-  //   config.resolve.alias.encoding = false
-  //   return config
-  // },
-
-    turbopack: {
+  turbopack: {
     resolveAlias: {
+      // pdfjs (via react-pdf) tries to resolve these optional native modules
+      // but never uses them in the browser.
       canvas: "./src/shims/empty.ts",
       encoding: "./src/shims/empty.ts",
-     
     },
   },
 };

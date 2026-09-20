@@ -23,6 +23,9 @@
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-muted: var(--brand-muted);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -66,6 +69,11 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+  /* Single accent, used only where colour carries meaning:
+     citations, links, focus and the active page indicator. */
+  --brand: oklch(0.54 0.17 264);
+  --brand-foreground: oklch(0.985 0 0);
+  --brand-muted: oklch(0.54 0.17 264 / 10%);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -102,6 +110,9 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+  --brand: oklch(0.72 0.15 264);
+  --brand-foreground: oklch(0.16 0 0);
+  --brand-muted: oklch(0.72 0.15 264 / 15%);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -130,20 +141,25 @@
 }
 
 .scrollbar-w-2::-webkit-scrollbar {
-  width: 0.25rem;
-  height: 0.25rem;
+  width: 0.375rem;
+  height: 0.375rem;
 }
 
-.scrollbar-track-blue-lighter::-webkit-scrollbar-track {
-  --bg-opacity: 0.5;
-  background-color: #00000015;
+.scrollbar-w-2::-webkit-scrollbar-track {
+  background-color: transparent;
 }
 
-.scrollbar-thumb-blue::-webkit-scrollbar-thumb {
-  --bg-opacity: 0.5;
-  background-color: #13131374;
+.scrollbar-w-2::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background-color: color-mix(in oklch, var(--foreground) 18%, transparent);
 }
 
-.scrollbar-thumb-rounded::-webkit-scrollbar-thumb {
-  border-radius: 7px;
+.scrollbar-w-2::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklch, var(--foreground) 30%, transparent);
+}
+
+/* Firefox */
+.scrollbar-w-2 {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--foreground) 18%, transparent) transparent;
 }

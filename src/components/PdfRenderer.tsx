@@ -30,31 +30,23 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
 
-import PdfFullscreen from "./PdfFullscreen"
-
-// pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-//   "pdfjs-dist/build/pdf.worker.min.mjs",
-//   import.meta.url
-// ).toString();
-
-// pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-//   "pdfjs-dist/build/pdf.worker.mjs",
-//   import.meta.url
-// ).toString();
-
-
+import PdfFullscreen from './PdfFullscreen'
+import { usePdfPage } from './PdfPageContext'
 
 interface PdfRendererProps {
   url: string
 }
 
+const ZOOM_LEVELS = [1, 1.5, 2, 2.5]
+
 const PdfRenderer = ({ url }: PdfRendererProps) => {
-    useEffect(() => {
+  useEffect(() => {
     pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      "pdfjs-dist/build/pdf.worker.mjs",
+      'pdfjs-dist/build/pdf.worker.mjs',
       import.meta.url
-    ).toString();
+    ).toString()
   }, [])
+
   const [numPages, setNumPages] = useState<number>()
   const [currPage, setCurrPage] = useState<number>(1)
   const [scale, setScale] = useState<number>(1)
@@ -64,12 +56,10 @@ const PdfRenderer = ({ url }: PdfRendererProps) => {
 
   const isLoading = renderedScale !== scale || renderedPage !== currPage
 
-
-
   const CustomPageValidator = z.object({
     page: z
       .string()
-      .refine((num) => Number(num) > 0 && Number(num) <= numPages!),
+      .refine((num) => Number(num) > 0 && Number(num) <= (numPages ?? 0)),
   })
 
   type TCustomPageValidator = z.infer<typeof CustomPageValidator>
@@ -86,126 +76,137 @@ const PdfRenderer = ({ url }: PdfRendererProps) => {
 
   const { width, ref } = useResizeDetector()
 
-  const handlePageSubmit = ({ page }: TCustomPageValidator) => {
-    setCurrPage(Number(page))
-    setValue('page', String(page))
+  // Jump to a page when a citation in the chat is clicked.
+  const { subscribe } = usePdfPage()
+  useEffect(() => {
+    return subscribe((page) => {
+      const upperBound = numPages ?? Number.MAX_SAFE_INTEGER
+      const target = Math.min(Math.max(1, page), upperBound)
+      setCurrPage(target)
+      setValue('page', String(target))
+    })
+  }, [subscribe, numPages, setValue])
+
+  const goToPage = (next: number) => {
+    const clamped = Math.min(Math.max(1, next), numPages ?? 1)
+    setCurrPage(clamped)
+    setValue('page', String(clamped))
   }
 
+  const handlePageSubmit = ({ page }: TCustomPageValidator) => goToPage(Number(page))
+
   return (
+    <div className='flex h-full w-full flex-col overflow-hidden rounded-lg border border-border bg-card'>
+      <div className='flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2'>
+        <div className='flex items-center gap-1'>
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            disabled={currPage <= 1}
+            onClick={() => goToPage(currPage - 1)}
+            aria-label='Previous page'>
+            <ChevronUp className='size-4' />
+          </Button>
 
-  <div className='w-full h-full bg-white rounded-md shadow flex flex-col items-center'>
-    <div className='h-14 w-full border-b border-slate-200 flex items-center justify-between px-2 shrink-0'>
-      <div className='flex items-center gap-1.5'>
-        <Button
-          disabled={currPage <= 1}
-          onClick={() => {
-            setCurrPage((prev) => prev - 1 > 1 ? prev - 1 : 1)
-            setValue('page', String(currPage - 1))
-          }}
-          variant='ghost'
-          aria-label='previous page'>
-          <ChevronDown className='h-4 w-4' />
-        </Button>
+          <div className='flex items-center gap-1.5 text-sm'>
+            <Input
+              {...register('page')}
+              aria-label='Page number'
+              className={cn(
+                'h-7 w-11 px-0 text-center text-sm tabular-nums',
+                errors.page && 'border-destructive focus-visible:ring-destructive/40'
+              )}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSubmit(handlePageSubmit)()
+              }}
+            />
+            <span className='text-muted-foreground'>
+              / {numPages ?? '–'}
+            </span>
+          </div>
 
-        <div className='flex items-center gap-1.5'>
-          <Input
-            {...register('page')}
-            className={cn(
-              'w-12 h-8',
-              errors.page && 'focus-visible:ring-red-500'
-            )}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSubmit(handlePageSubmit)()
-              }
-            }}
-          />
-          <p className='text-slate-700 text-sm space-x-1'>
-            <span>/</span>
-            <span>{numPages ?? 'x'}</span>
-          </p>
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            disabled={numPages === undefined || currPage >= numPages}
+            onClick={() => goToPage(currPage + 1)}
+            aria-label='Next page'>
+            <ChevronDown className='size-4' />
+          </Button>
         </div>
 
-        <Button
-          disabled={numPages === undefined || currPage === numPages}
-          onClick={() => {
-            setCurrPage((prev) => prev + 1 > numPages! ? numPages! : prev + 1)
-            setValue('page', String(currPage + 1))
-          }}
-          variant='ghost'
-          aria-label='next page'>
-          <ChevronUp className='h-4 w-4' />
-        </Button>
+        <div className='flex items-center gap-1'>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant='ghost' size='sm' aria-label='Zoom'>
+                <Search className='size-3.5' />
+                <span className='tabular-nums'>{scale * 100}%</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end'>
+              {ZOOM_LEVELS.map((level) => (
+                <DropdownMenuItem
+                  key={level}
+                  onSelect={() => setScale(level)}
+                  className='cursor-pointer tabular-nums'>
+                  {level * 100}%
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            onClick={() => setRotation((prev) => prev + 90)}
+            aria-label='Rotate 90 degrees'>
+            <RotateCw className='size-4' />
+          </Button>
+
+          <PdfFullscreen fileUrl={url} />
+        </div>
       </div>
 
-      <div className='space-x-2'>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className='gap-1.5' aria-label='zoom' variant='ghost'>
-              <Search className='h-4 w-4' />
-              {scale * 100}%
-              <ChevronDown className='h-3 w-3 opacity-50' />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onSelect={() => setScale(1)}>100%</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setScale(1.5)}>150%</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setScale(2)}>200%</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setScale(2.5)}>250%</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <Button
-          onClick={() => setRotation((prev) => prev + 90)}
-          variant='ghost'
-          aria-label='rotate 90 degrees'>
-          <RotateCw className='h-4 w-4' />
-        </Button>
-
-        <PdfFullscreen fileUrl={url} />
-      </div>
-    </div>
-
-    <div className='flex-1 w-full overflow-y-auto'>
-      <div ref={ref}>
-        <Document
-          loading={
-            <div className='flex justify-center'>
-              <Loader2 className='my-24 h-6 w-6 animate-spin' />
-            </div>
-          }
-          onLoadError={() => {
-            toast.error('Error loading PDF', {
-              description: 'Please try again later',
-            })
-          }}
-          onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-          file={url}>
-          <Page
-            className={cn(
-              'transition-opacity duration-200',
-              isLoading ? 'opacity-0' : 'opacity-100'
-            )}
-            width={width ? width : 1}
-            pageNumber={currPage}
-            scale={scale}
-            rotate={rotation}
+      <div className='scrollbar-w-2 flex-1 overflow-auto bg-muted/30'>
+        <div ref={ref} className='flex justify-center py-4'>
+          <Document
             loading={
-              <div className='flex justify-center'>
-                <Loader2 className='my-24 h-6 w-6 animate-spin' />
+              <div className='flex justify-center py-24'>
+                <Loader2 className='size-6 animate-spin text-muted-foreground' />
               </div>
             }
-            onRenderSuccess={() => {
-              setRenderedScale(scale)
-              setRenderedPage(currPage)
+            onLoadError={() => {
+              toast.error('Error loading PDF', {
+                description: 'Please try again later',
+              })
             }}
-          />
-        </Document>
+            onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+            file={url}
+            className='max-w-full'>
+            <Page
+              className={cn(
+                'shadow-lg shadow-foreground/10 transition-opacity duration-200',
+                isLoading ? 'opacity-0' : 'opacity-100'
+              )}
+              width={width ? width - 32 : undefined}
+              pageNumber={currPage}
+              scale={scale}
+              rotate={rotation}
+              loading={
+                <div className='flex justify-center py-24'>
+                  <Loader2 className='size-6 animate-spin text-muted-foreground' />
+                </div>
+              }
+              onRenderSuccess={() => {
+                setRenderedScale(scale)
+                setRenderedPage(currPage)
+              }}
+            />
+          </Document>
+        </div>
       </div>
     </div>
-  </div>
-)
-  
+  )
 }
 
 export default PdfRenderer

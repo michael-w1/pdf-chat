@@ -1,3 +1,5 @@
+'use client'
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -6,58 +8,60 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
 import { Button } from './ui/button'
-import { Avatar, AvatarFallback } from './ui/avatar'
-import { Icons } from './Icons'
 import Link from 'next/link'
-import { SignOutButton } from '@clerk/nextjs'
+import { useClerk } from '@clerk/nextjs'
 
 interface UserAccountNavProps {
   email: string | undefined
   name: string
 }
 
-const UserAccountNav = ({
-  email,
-  name,
-}: UserAccountNavProps) => {
+/** First letters of the user's name, or a fallback glyph. */
+function initials(name: string): string {
+  const letters = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
+  return letters || '?'
+}
+
+const UserAccountNav = ({ email, name }: UserAccountNavProps) => {
+  const { signOut } = useClerk()
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild className='overflow-visible'>
-        <Button className='rounded-full h-8 w-8 aspect-square bg-slate-400'>
-          <Avatar className='relative w-8 h-8'>
-              
-                
-              <AvatarFallback>
-                <span className='sr-only'>{name}</span>
-                <Icons.user className='h-4 w-4 text-slate-900' />
-              </AvatarFallback>
-        
-          </Avatar>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant='ghost'
+          size='icon'
+          aria-label='Account menu'
+          className='ml-1 rounded-full border border-border bg-muted text-xs font-medium'>
+          {initials(name)}
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent className='bg-white min-w-[240px]' align='end'>
-        <div className='flex items-center justify-start gap-2 p-2'>
-          <div className='flex flex-col space-y-0.5 leading-none'>
-            {name && (
-              <p className='font-medium text-sm text-black'>{name}</p>
-            )}
-            {email && (
-              <p className='w-[200px] truncate text-xs text-slate-700'>{email}</p>
-            )}
-          </div>
+      <DropdownMenuContent align='end' sideOffset={8} className='w-60'>
+        <div className='flex flex-col gap-0.5 px-2 py-1.5'>
+          <p className='truncate text-sm font-medium'>{name}</p>
+          {email ? (
+            <p className='truncate text-xs text-muted-foreground'>{email}</p>
+          ) : null}
         </div>
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem asChild>
+        <DropdownMenuItem asChild className='cursor-pointer'>
           <Link href='/dashboard'>Dashboard</Link>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem className='cursor-pointer'>
-          <SignOutButton />
+        <DropdownMenuItem
+          onSelect={() => signOut({ redirectUrl: '/' })}
+          className='cursor-pointer'>
+          Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

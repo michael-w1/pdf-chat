@@ -3,11 +3,7 @@ import db from "@/lib/prisma";
 import Dashboard from "@/components/Dashboard";
 import { currentUser } from "@clerk/nextjs/server";
 
-type Props = {
-  
-}
-
-const page = async ({}: Props) => {
+const page = async () => {
     const user = await currentUser();
 
     if (!user || !user.id) redirect('/auth-callback?origin=dashboard'); 

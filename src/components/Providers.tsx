@@ -1,7 +1,9 @@
-"use client"
+"use client";
+
 import { PropsWithChildren, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
+import { ThemeProvider } from "next-themes";
 import { trpc } from "@/app/_trpc/client";
 
 const Providers = ({ children }: PropsWithChildren) => {
@@ -10,19 +12,29 @@ const Providers = ({ children }: PropsWithChildren) => {
         trpc.createClient({
             links: [
                 httpBatchLink({
-                    url: `${process.env.NEXT_PUBLIC_APP_URL}/api/trpc`
+                    // Same-origin request, so a relative URL works in every environment.
+                    url: "/api/trpc",
                 }),
             ],
         })
-    )
+    );
+
     return (
         <trpc.Provider client={trpcClient} queryClient={queryClient}>
             <QueryClientProvider client={queryClient}>
-                {children}
+                {/* `class` strategy matches the `@custom-variant dark (&:is(.dark *))`
+                    rule in globals.css, which expects the class on <html>. */}
+                <ThemeProvider
+                    attribute="class"
+                    defaultTheme="system"
+                    enableSystem
+                    disableTransitionOnChange
+                >
+                    {children}
+                </ThemeProvider>
             </QueryClientProvider>
         </trpc.Provider>
-    )
-
-}
+    );
+};
 
 export default Providers;

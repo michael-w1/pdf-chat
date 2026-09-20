@@ -1,109 +1,108 @@
 import { trpc } from "@/app/_trpc/client";
 import { INFINITE_QUERY_LIMIT } from "@/config/infinite-query";
-// 1. Import keepPreviousData from TanStack Query
 import { keepPreviousData } from "@tanstack/react-query";
 import { Loader2, MessageSquare } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
 import { ChatContext } from "./ChatContext";
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect } from "react";
 import Message from "./Message";
-import { useIntersection } from '@mantine/hooks'
+import { useIntersection } from "@mantine/hooks";
 
 type Props = {
-    fileId: string
-}
+    fileId: string;
+};
 
 const Messages = ({ fileId }: Props) => {
-    const { isLoading: isAiThinking } = useContext(ChatContext)
-    const { data, isLoading, fetchNextPage } = trpc.getFileMessages.useInfiniteQuery(
-        {
-            fileId,
-            limit: INFINITE_QUERY_LIMIT,
-        },
-        {
-            getNextPageParam: (lastPage) => lastPage?.nextCursor,
-        
-            placeholderData: keepPreviousData,
-        }
-    )
+    const { isLoading: isAiThinking } = useContext(ChatContext);
+    const { data, isLoading, fetchNextPage } =
+        trpc.getFileMessages.useInfiniteQuery(
+            { fileId, limit: INFINITE_QUERY_LIMIT },
+            {
+                getNextPageParam: (lastPage) => lastPage?.nextCursor,
+                placeholderData: keepPreviousData,
+            }
+        );
 
-    const messages = data?.pages.flatMap((page) => page.messages)
+    const messages = data?.pages.flatMap((page) => page.messages);
 
     const loadingMessage = {
         createdAt: new Date().toISOString(),
-        id: 'loading-message',
+        id: "loading-message",
         isUserMessage: false,
+        sourcePages: [] as number[],
         text: (
-            <span className="flex h-full items-center justify-center">
-                <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="flex items-center gap-1.5 py-0.5">
+                <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+                <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+                <span className="size-1.5 animate-bounce rounded-full bg-current" />
             </span>
-        )
-
-    }
-
+        ),
+    };
 
     const combinedMessages = [
         ...(isAiThinking ? [loadingMessage] : []),
-        ...(messages ?? [])
-    ]
+        ...(messages ?? []),
+    ];
 
-
-    const lastMessageRef = useRef<HTMLDivElement>(null);
-    const { ref, entry } = useIntersection({
-        root: lastMessageRef.current,
-        threshold: 1
-    })
+    const { ref, entry } = useIntersection({ threshold: 1 });
 
     useEffect(() => {
-        if (entry?.isIntersecting) {
-            fetchNextPage()
-        }
-    }, [entry, fetchNextPage])
+        if (entry?.isIntersecting) fetchNextPage();
+    }, [entry, fetchNextPage]);
+
+    if (combinedMessages.length === 0 && isLoading) {
+        return (
+            <div className="flex flex-1 flex-col gap-4 p-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton
+                        key={i}
+                        className={i % 2 === 0 ? "ml-auto h-12 w-3/5" : "h-16 w-4/5"}
+                    />
+                ))}
+            </div>
+        );
+    }
+
+    if (combinedMessages.length === 0) {
+        return (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+                <span className="flex size-11 items-center justify-center rounded-xl border border-border bg-muted/40">
+                    <MessageSquare className="size-5 text-brand" />
+                </span>
+                <h3 className="font-medium">Ready when you are</h3>
+                <p className="max-w-xs text-sm text-muted-foreground">
+                    Ask a question about this document and the answer will cite the
+                    pages it came from.
+                </p>
+            </div>
+        );
+    }
 
     return (
-        <div className="flex max-h-[calc(100vh-3.5rem-7rem)] border-slate-200 flex-1 flex-col-reverse gap-4 
-            p-3 overflow-y-auto scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 
-            scrolling-touch">
+        <div className="scrollbar-w-2 flex flex-1 flex-col-reverse gap-4 overflow-y-auto p-4">
+            {combinedMessages.map((msg, i) => {
+                const isNextMsgSamePerson =
+                    combinedMessages[i - 1]?.isUserMessage ===
+                    combinedMessages[i]?.isUserMessage;
+                const isLast = i === combinedMessages.length - 1;
 
-            {combinedMessages && combinedMessages.length > 0 ? (
-                combinedMessages.map((msg, i) => {
-                    const isNextMsgSamePerson = combinedMessages[i - 1]?.isUserMessage === combinedMessages[i]?.isUserMessage;
+                return (
+                    <Message
+                        key={msg.id}
+                        ref={isLast ? ref : undefined}
+                        message={msg}
+                        isNextMessageSamePerson={isNextMsgSamePerson}
+                    />
+                );
+            })}
 
-
-                    if (i === combinedMessages.length - 1) {
-                        return <Message
-                            ref={ref}
-                            message={msg}
-                            isNextMessageSamePerson={isNextMsgSamePerson}
-                            key={msg.id}
-                        />
-                    } else return (
-                        <Message
-                            message={msg}
-                            key = {msg.id}
-                            isNextMessageSamePerson={isNextMsgSamePerson} />)
-
-                })
-
-                ) : isLoading ? (
-
-                    <div className="w-full flex flex-col gap-2">
-                        <Skeleton className="h-16" />
-                        <Skeleton className="h-16" />
-                        <Skeleton className="h-16" />
-                        <Skeleton className="h-16" />
-                    </div>
-                ) : (
-                <div className="flex-1 flex flex-col items-center justify-center gap-2">
-                    <MessageSquare className="h-8 w-8 text-blue-500" />
-                    <h3 className="font-semibold text-xl">{"You're all set!"}</h3>
-                    <p className="text-slate-500 text-sm"> Ask your first question to get started </p>
-
+            {isLoading ? (
+                <div className="flex justify-center py-2">
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
                 </div>
-            )}
-
-
-        </div>)
-}
+            ) : null}
+        </div>
+    );
+};
 
 export default Messages;
