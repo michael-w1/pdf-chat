@@ -4,7 +4,11 @@ Upload a PDF and ask it questions. Answers are grounded in the document with ret
 
 Built end to end on Azure: AI Search for hybrid retrieval, Azure OpenAI for embeddings and generation, Document Intelligence for layout-aware extraction, Blob Storage for files, and Container Apps for hosting.
 
-https://github.com/user-attachments/assets/01ec70c7-dfce-45f9-84ce-60e490db6bca
+
+
+https://github.com/user-attachments/assets/b173ffcb-d9b3-49cf-a760-ce54d593e235
+
+
 
 **[Live demo](https://pdf-chat.politeglacier-3cd2a0b8.westus.azurecontainerapps.io)** — hosted on Azure Container Apps. It scales to zero when idle, so the first request after a quiet period takes a few seconds to wake.
 
@@ -124,7 +128,7 @@ npm test
 
 ## Running locally
 
-Prerequisites: Node 22, a Postgres database, a Clerk application, and the Azure resources from [AZURE_SETUP.md](AZURE_SETUP.md).
+Prerequisites: Node 22, a Postgres database, a Clerk application, and the Azure Cloud Resources. 
 
 ```bash
 cp .env.example .env    # fill in the values
