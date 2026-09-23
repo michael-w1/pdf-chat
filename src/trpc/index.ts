@@ -10,6 +10,7 @@ import {
     deleteBlob,
 } from "@/lib/azure/blob";
 import { deleteChunksForFile } from "@/lib/azure/search";
+import { checkUploadRateLimit } from "@/lib/rate-limit";
 
 export const appRouter = router({
     authCallback: privateProcedure.query(async ({ ctx }) => {
@@ -53,6 +54,19 @@ export const appRouter = router({
         )
         .mutation(async ({ ctx, input }) => {
             const { userId } = ctx;
+
+            // Uploads are the expensive path: each one triggers layout
+            // analysis billed per page plus embedding of every chunk. Checked
+            // before the row is created, so a rejected request costs nothing.
+            const rateLimit = await checkUploadRateLimit((since) =>
+                db.file.count({ where: { userId, createdAt: { gte: since } } })
+            );
+            if (!rateLimit.allowed) {
+                throw new TRPCError({
+                    code: "TOO_MANY_REQUESTS",
+                    message: "Upload limit reached. Please try again later.",
+                });
+            }
 
             const file = await db.file.create({
                 data: {

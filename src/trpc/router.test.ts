@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
             create: vi.fn(),
             update: vi.fn(),
             delete: vi.fn(),
+            count: vi.fn(),
         },
         message: { findMany: vi.fn() },
     },
@@ -96,6 +97,7 @@ describe("getUserFiles", () => {
 
 describe("createUploadSlot", () => {
     beforeEach(() => {
+        mocks.db.file.count.mockResolvedValue(0);
         mocks.db.file.create.mockResolvedValue({ id: "f1" });
         mocks.db.file.update.mockResolvedValue({ id: "f1" });
         mocks.createUploadUrl.mockResolvedValue("https://blob/sas");
@@ -139,6 +141,43 @@ describe("createUploadSlot", () => {
     it("rejects an empty file name", async () => {
         await expect(caller.createUploadSlot({ name: "   ", size: 10 })).rejects.toThrow();
         expect(mocks.createUploadUrl).not.toHaveBeenCalled();
+    });
+
+    it("allows the fifth upload in the window", async () => {
+        mocks.db.file.count.mockResolvedValue(4);
+
+        await expect(
+            caller.createUploadSlot({ name: "notes.pdf", size: 1000 })
+        ).resolves.toMatchObject({ fileId: "f1" });
+    });
+
+    it("rejects the sixth upload within the hour", async () => {
+        mocks.db.file.count.mockResolvedValue(5);
+
+        await expect(
+            caller.createUploadSlot({ name: "notes.pdf", size: 1000 })
+        ).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
+    });
+
+    it("rejects before creating a row or minting a URL, so a blocked upload costs nothing", async () => {
+        mocks.db.file.count.mockResolvedValue(5);
+
+        await expect(
+            caller.createUploadSlot({ name: "notes.pdf", size: 1000 })
+        ).rejects.toThrow();
+
+        expect(mocks.db.file.create).not.toHaveBeenCalled();
+        expect(mocks.createUploadUrl).not.toHaveBeenCalled();
+    });
+
+    it("counts only this user's uploads", async () => {
+        mocks.db.file.count.mockResolvedValue(0);
+
+        await caller.createUploadSlot({ name: "notes.pdf", size: 1000 });
+
+        expect(mocks.db.file.count).toHaveBeenCalledWith({
+            where: { userId: "user_1", createdAt: { gte: expect.any(Date) } },
+        });
     });
 });
 

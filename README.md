@@ -19,7 +19,7 @@ https://github.com/user-attachments/assets/b173ffcb-d9b3-49cf-a760-ce54d593e235
 - **Layout-aware extraction.** Tables stay tables and multi-column pages read in the right order, because extraction understands document structure rather than scraping a text layer.
 - **Streaming responses.** Tokens render as they arrive, with optimistic updates so the conversation feels instant.
 - **Per-user isolation.** Files upload to a private container through scoped, write-only credentials, and every retrieval is filtered to the owner.
-- **Rate limiting.** Each user is capped at a configurable number of messages per window, since every question costs model tokens.
+- **Rate limiting on both cost paths.** Chat is capped per user per window, and uploads more tightly still, since each one bills per-page document analysis rather than just model tokens.
 - **Clean lifecycle.** Deleting a document removes its indexed chunks, its stored file, and its message history.
 
 ## Architecture
@@ -99,7 +99,7 @@ flowchart LR
 
 **Container Apps rather than serverless.** Analysing and embedding a long PDF can exceed a serverless execution limit, which is what forced the original processing to be awkward. A container has no such ceiling, so ingestion runs inline. Scale-to-zero means idle costs nothing.
 
-**Rate limit backed by the database.** The messages table already records who sent what and when, so counting recent rows gives a limiter that works across instances with no extra infrastructure. The cost is one indexed count per request, negligible next to a model call. The tradeoff is a fixed window rather than a sliding one.
+**Rate limits backed by the database, sized to what each action costs.** Rows already record who did what and when, so counting recent ones gives a limiter that works across instances with no extra infrastructure. Chat allows 20 messages per 10 minutes; uploads allow 5 per hour, because an upload bills per-page layout analysis plus embedding of every chunk while a message only spends model tokens. The upload check runs before any row is created, so a rejected request costs nothing. The tradeoff is a fixed window rather than a sliding one.
 
 **Index definition lives in code.** `src/lib/azure/search.ts` holds the field, vector, and semantic configuration, and `npm run azure:setup` applies it. Clicking an index together in the portal leaves no reviewable artifact and cannot be recreated reliably.
 
